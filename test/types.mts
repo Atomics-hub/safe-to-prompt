@@ -1,0 +1,20 @@
+import {canPrompt, whyNotPrompt, canAnimate, canUseColor, canOpenBrowser, detectAgent, detectCI, detectSandbox, describeEnvironment, promptOr, AGENT_VARIABLES, CI_VARIABLES, SANDBOX_VARIABLES, PromptContextError} from 'can-prompt';
+import type {Options, Reason, Detection, EnvironmentDescription} from 'can-prompt';
+
+const opts: Options = {env: {CI: '1'}, stdin: {isTTY: true}, stdout: {isTTY: true}};
+const ok: boolean = canPrompt(opts);
+const why: {reason: Reason; detail: string} | null = whyNotPrompt(opts);
+const animate: boolean = canAnimate(opts);
+const color: boolean = canUseColor(opts);
+const browser: boolean = canOpenBrowser(opts);
+const agent: Detection | null = detectAgent(opts);
+const ci: {variable: string} | null = detectCI(opts);
+const sandbox: Detection | null = detectSandbox(opts);
+const described: EnvironmentDescription = describeEnvironment(opts);
+const answer: Promise<string> = promptOr<string>(() => 'asked', 'fallback', opts);
+const agents: Readonly<Record<string, string>> = AGENT_VARIABLES;
+const cis: readonly string[] = CI_VARIABLES;
+const sandboxes: Readonly<Record<string, string>> = SANDBOX_VARIABLES;
+const err: PromptContextError = new PromptContextError('x');
+const name: 'PromptContextError' = err.name;
+void [ok, why, animate, color, browser, agent, ci, sandbox, described, answer, agents, cis, sandboxes, name];
