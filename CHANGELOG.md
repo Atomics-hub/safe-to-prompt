@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.1
+
+Corrections, so that every claim is one that was measured or traced to source.
+
+- The agent explanation no longer says a terminal is attached when none is. Most agents attach no
+  terminal at all; the message now names one only when stdin really is a terminal.
+- The agent list was rebuilt against each agent's own source code. Added `CLINE_ACTIVE`, `CODEX_CI`,
+  `CODEX_SESSION_ID`, `KILO`, `KILO_PID` and `ROO_ACTIVE`. Each entry is commented with its source.
+- Removed `AIDER_CHAT`, which Aider does not set. Aider runs a command only after a person approves it,
+  so a prompt under Aider reaches a human and must not be refused.
+- Left out the bare `AGENT` variable that opencode and kilo set: both close stdin, which the terminal
+  check already catches, and so generic a name invites false positives.
+- The README now leads with what was measured: under a closed stdin, `prompts` exits 0 having done
+  nothing, and `shadcn init`, `shadcn add`, `create-next-app`, `create-astro` and `sv create` do exactly
+  that. It states plainly that a TTY check covers the common case, and that this package's added value
+  is agents and CI runs that attach a real terminal, which Gemini CLI and Cline do by default.
+
 ## 0.1.0
 
 First release.

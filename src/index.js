@@ -1,9 +1,10 @@
 // Can this process block on human input?
 //
-// A terminal check answers a different question than the one a CLI is asking. Measured inside a real
-// coding agent with a pseudo-terminal attached, `process.stdin.isTTY` is true and a TTY-based
-// interactivity check returns "safe to prompt". Nobody is there. The prompt waits until the agent
-// times out.
+// Calling a prompt library when nobody can answer fails in one of two ways, both measured inside a
+// real coding agent. If stdin is closed, the prompt's promise never settles, the event loop drains,
+// and the process exits 0 having done nothing: the agent is told it succeeded. If stdin stays open,
+// the same promise waits until the agent gives up. A terminal check catches the common case; the
+// checks below also cover an agent or CI run that does attach a terminal.
 //
 // So the checks here are ordered by authority, and every answer carries the reason it was reached:
 //
@@ -24,31 +25,45 @@ export class PromptContextError extends Error {
   }
 }
 
-// Environment variables set by coding agents and automated development tools. Names only; each is a
-// published detail of the tool that sets it. Prior art worth crediting: expo's agent-cli-detector,
-// vercel's detect-agent and davidmokos' sandbox-cli-detector cover overlapping ground.
+// Environment variables that coding agents set on the commands they run, checked in order, so the
+// specific markers come before the generic ones. Where an agent's own source code was read, the entry
+// says so; the rest come from the prior-art lists in expo's agent-cli-detector, vercel's detect-agent
+// and davidmokos' sandbox-cli-detector, and are worth the same scepticism as any list.
+//
+// Aider is deliberately absent: it runs commands only after a person approves each one and wires
+// their keyboard to the command, so a prompt under Aider does reach a human.
 export const AGENT_VARIABLES = Object.freeze({
-  CLAUDECODE: 'claude-code',
-  CLAUDE_CODE_SESSION_ID: 'claude-code',
+  // Read in source, 2026-09-22, or observed directly in a running session.
+  CLAUDECODE: 'claude-code',            // observed in a Claude Code session
+  CLAUDE_CODE_SESSION_ID: 'claude-code', // observed in a Claude Code session
+  GEMINI_CLI: 'gemini-cli',             // gemini-cli shellExecutionService.ts; runs commands on a PTY
+  CLINE_ACTIVE: 'cline',                // cline VscodeTerminalRegistry.ts; runs commands on a PTY
+  CODEX_CI: 'codex',                    // codex unified_exec process_manager.rs
+  CODEX_THREAD_ID: 'codex',             // codex unified_exec process_manager.rs
+  CODEX_SESSION_ID: 'codex',            // codex core exec_env.rs
+  CODEX_SANDBOX: 'codex',               // codex core sandboxing/mod.rs
+  OPENCODE: 'opencode',                 // opencode src/index.ts
+  OPENCODE_PID: 'opencode',             // opencode src/index.ts
+  KILO: 'kilo',                         // kilo kilocode/cli/setup.ts
+  KILO_PID: 'kilo',                     // kilo src/index.ts
+  ROO_ACTIVE: 'roo-code',               // roo Terminal.ts, on its terminal path
+  // From the prior-art lists, not independently read.
   CURSOR_CONVERSATION_ID: 'cursor',
   CURSOR_AGENT: 'cursor',
-  CODEX_THREAD_ID: 'codex',
-  CODEX_SANDBOX: 'codex',
   COPILOT_AGENT_SESSION_ID: 'github-copilot',
   GITHUB_COPILOT_CLI: 'github-copilot',
-  GEMINI_CLI: 'gemini-cli',
   REPLIT_SESSION: 'replit',
   DEVIN_SESSION_ID: 'devin',
-  OPENCODE: 'opencode',
-  OPENCODE_PID: 'opencode',
-  AIDER_CHAT: 'aider',
   KIRO_SESSION_ID: 'kiro',
   KILO_RUN_ID: 'kilo',
   GROK_SESSION_ID: 'grok',
   ANTIGRAVITY_TRAJECTORY_ID: 'antigravity',
   AUGMENT_CLI: 'augment',
   PI_CODING_AGENT: 'pi',
-  AI_AGENT: 'unknown-agent',
+  // A generic marker, last, so a specific one names the agent when both are present. The bare `AGENT`
+  // variable that opencode and kilo also set is left out: both close stdin, which the terminal check
+  // already catches, and a name that plain invites false positives from build servers.
+  AI_AGENT: 'unknown-agent',            // observed in a Claude Code session
 });
 
 // Continuous integration. `CI` alone covers most providers; the rest set only their own name.
@@ -137,12 +152,12 @@ function decide(options) {
 
   const agent = detectAgent(options);
   if (agent) {
-    return {
-      can: false,
-      reason: 'agent',
-      detail: `running under ${agent.id} (${agent.variable} is set); a terminal check would say yes here and the prompt would wait until the agent times out`,
-      agent,
-    };
+    // Say only what is true of this process. Most agents attach no terminal at all; the case worth
+    // naming is the one where a terminal IS attached, because that is the one a TTY check gets wrong.
+    const detail = stdin?.isTTY
+      ? `running under ${agent.id} (${agent.variable} is set); a terminal is attached, but nobody is at it`
+      : `running under ${agent.id} (${agent.variable} is set), so nobody is there to answer`;
+    return {can: false, reason: 'agent', detail, agent};
   }
 
   const ci = detectCI(options);

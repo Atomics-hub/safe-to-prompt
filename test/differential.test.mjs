@@ -69,6 +69,25 @@ test('every registry entry is reachable and maps to a stable identifier', () => 
   for (const name of CI_VARIABLES) assert.ok(!agentNames.has(name), `${name} is in two registries`);
 });
 
+test('the registry reflects what the agents were found to do in their own source', () => {
+  // Agents that attach a real terminal by default. These are the cases a TTY check gets wrong, so they
+  // must be recognised by marker rather than by the terminal.
+  for (const [variable, id] of [['GEMINI_CLI', 'gemini-cli'], ['CLINE_ACTIVE', 'cline']]) {
+    const scenario = {env: {[variable]: variable === 'CLINE_ACTIVE' ? 'true' : '1'}, stdin: TTY, stdout: TTY};
+    assert.equal(canPrompt(scenario), false, `${variable} with a terminal attached`);
+    assert.equal(describeEnvironment(scenario).agent.id, id);
+  }
+  // Codex marks its commands and closes stdin; either alone is enough.
+  assert.equal(canPrompt({env: {CODEX_CI: '1'}, stdin: TTY, stdout: TTY}), false);
+  assert.equal(canPrompt({env: {}, stdin: PIPE, stdout: PIPE}), false);
+  // Aider runs commands only after a person approves each one, so it must not be treated as unattended.
+  assert.ok(!Object.keys(AGENT_VARIABLES).some((name) => /aider/i.test(name)), 'no Aider marker');
+  // A specific marker names the agent even when the generic one is also set.
+  assert.equal(describeEnvironment({env: {AI_AGENT: '1', CLINE_ACTIVE: 'true'}, stdin: TTY, stdout: TTY}).agent.id, 'cline');
+  // The bare AGENT variable is too generic to trust, so on its own it does not block a real terminal.
+  assert.equal(canPrompt({env: {AGENT: 'build-runner-7', TERM: 'xterm'}, stdin: TTY, stdout: TTY}), true);
+});
+
 test('the answer never depends on the order of unrelated variables', () => {
   const base = {TERM: 'xterm', PATH: '/usr/bin', HOME: '/home/x', LANG: 'en_US.UTF-8'};
   const forward = {...base, CLAUDECODE: '1'};

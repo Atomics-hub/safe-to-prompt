@@ -31,6 +31,16 @@ export async function runChecks(api) {
     const why = whyNotPrompt(scenario);
     assert.equal(why.reason, 'agent');
     assert.match(why.detail, /claude-code/);
+    assert.match(why.detail, /a terminal is attached/, 'names the terminal when there is one');
+  });
+
+  // The explanation never claims a terminal that is not there. In most agents there is none.
+  check(() => {
+    const noTerminal = {env: {CLAUDECODE: '1'}, stdin: PIPE, stdout: PIPE};
+    const why = whyNotPrompt(noTerminal);
+    assert.equal(why.reason, 'agent');
+    assert.doesNotMatch(why.detail, /terminal is attached/, 'does not invent a terminal');
+    assert.match(why.detail, /nobody is there to answer/);
   });
 
   // Every agent variable produces the same refusal, with a terminal attached throughout.
