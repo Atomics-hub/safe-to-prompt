@@ -1,4 +1,4 @@
-# can-prompt
+# safe-to-prompt
 
 Can this process block on human input? Zero dependencies.
 
@@ -13,7 +13,7 @@ canPrompt()           // false  ← nobody is there
 ```
 
 ```js
-import {canPrompt, promptOr} from 'can-prompt';
+import {canPrompt, promptOr} from 'safe-to-prompt';
 
 // Ask only when someone can answer.
 const branch = await promptOr(
@@ -148,7 +148,7 @@ is detected and work around a gap without waiting for a release.
 ## Install
 
 ```sh
-npm install can-prompt
+npm install safe-to-prompt
 ```
 
 ESM and CommonJS, TypeScript types included, Node 18 or newer, no dependencies.

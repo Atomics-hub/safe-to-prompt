@@ -103,7 +103,7 @@ const canAllocatePty = () => {
 };
 
 test('with a real pseudo-terminal attached, a terminal check says yes and this says no', {skip: !canAllocatePty()}, () => {
-  const dir = mkdtempSync(join(tmpdir(), 'can-prompt-pty-'));
+  const dir = mkdtempSync(join(tmpdir(), 'safe-to-prompt-pty-'));
   const probe = join(dir, 'probe.mjs');
   const moduleUrl = new URL('../src/index.js', import.meta.url).href;
   writeFileSync(probe, `

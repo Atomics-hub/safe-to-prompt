@@ -22,15 +22,15 @@ const manifest = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
 for (const field of ['dependencies', 'optionalDependencies', 'peerDependencies']) {
   assert.equal(Object.keys(manifest[field] ?? {}).length, 0, field);
 }
-const consumer = await mkdtemp(join(tmpdir(), 'can-prompt-consumer-'));
+const consumer = await mkdtemp(join(tmpdir(), 'safe-to-prompt-consumer-'));
 await writeFile(join(consumer, 'package.json'), JSON.stringify({private: true, type: 'module'}));
 runNpm(['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund', '--cache', join(consumer, '.npm-cache'), join(artifacts, packed.filename)], consumer);
 await cp(join(root, 'test/checks.mjs'), join(consumer, 'checks.mjs'));
 const script = `import assert from 'node:assert/strict';
-import * as esm from 'can-prompt';
+import * as esm from 'safe-to-prompt';
 import {createRequire} from 'node:module';
 import {runChecks} from './checks.mjs';
-const cjs = createRequire(import.meta.url)('can-prompt');
+const cjs = createRequire(import.meta.url)('safe-to-prompt');
 assert.deepEqual(Object.keys(cjs).sort(), ['AGENT_VARIABLES', 'CI_VARIABLES', 'PromptContextError', 'SANDBOX_VARIABLES', 'canAnimate', 'canOpenBrowser', 'canPrompt', 'canUseColor', 'describeEnvironment', 'detectAgent', 'detectCI', 'detectSandbox', 'promptOr', 'whyNotPrompt']);
 console.log(JSON.stringify({esm: await runChecks(esm), cjs: await runChecks(cjs), versions: process.versions}));\n`;
 await writeFile(join(consumer, 'consumer.mjs'), script);

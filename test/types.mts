@@ -1,5 +1,5 @@
-import {canPrompt, whyNotPrompt, canAnimate, canUseColor, canOpenBrowser, detectAgent, detectCI, detectSandbox, describeEnvironment, promptOr, AGENT_VARIABLES, CI_VARIABLES, SANDBOX_VARIABLES, PromptContextError} from 'can-prompt';
-import type {Options, Reason, Detection, EnvironmentDescription} from 'can-prompt';
+import {canPrompt, whyNotPrompt, canAnimate, canUseColor, canOpenBrowser, detectAgent, detectCI, detectSandbox, describeEnvironment, promptOr, AGENT_VARIABLES, CI_VARIABLES, SANDBOX_VARIABLES, PromptContextError} from 'safe-to-prompt';
+import type {Options, Reason, Detection, EnvironmentDescription} from 'safe-to-prompt';
 
 const opts: Options = {env: {CI: '1'}, stdin: {isTTY: true}, stdout: {isTTY: true}};
 const ok: boolean = canPrompt(opts);
