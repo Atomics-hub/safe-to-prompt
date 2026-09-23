@@ -1,5 +1,6 @@
-// The claim is that a terminal check answers the wrong question. This proves it two ways: against a
-// matrix of environments, and against a real pseudo-terminal in a real child process.
+// Where this package and a terminal check disagree, which is only where an agent or CI is driving.
+// Tested two ways: against a matrix of environments, and against a real pseudo-terminal in a real
+// child process.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
@@ -29,8 +30,9 @@ test('a terminal check and this package disagree exactly where they should', () 
     assert.equal(canPrompt(c), c.ours, `${c.label}: canPrompt`);
     if (terminalCheckSaysYes(c) !== canPrompt(c)) disagreements++;
   }
-  // The two disagreements are the agent and the CI run that provide a terminal. Those are the hangs.
-  assert.equal(disagreements, 2, 'the disagreements are the cases a terminal check gets wrong');
+  // The two disagreements are the agent and the CI run that provide a terminal. A prompt could be
+  // answered there; the policy here asks for a flag instead.
+  assert.equal(disagreements, 2, 'they disagree only where a program is driving');
 });
 
 test('this package never says yes where a terminal check says no', () => {
@@ -70,8 +72,8 @@ test('every registry entry is reachable and maps to a stable identifier', () => 
 });
 
 test('the registry reflects what the agents were found to do in their own source', () => {
-  // Agents that attach a real terminal by default. These are the cases a TTY check gets wrong, so they
-  // must be recognised by marker rather than by the terminal.
+  // Agents that attach a real terminal by default, so that a person can type into it. A TTY check
+  // allows a prompt there; the policy here recognises them by marker and asks for a flag instead.
   for (const [variable, id] of [['GEMINI_CLI', 'gemini-cli'], ['CLINE_ACTIVE', 'cline']]) {
     const scenario = {env: {[variable]: variable === 'CLINE_ACTIVE' ? 'true' : '1'}, stdin: TTY, stdout: TTY};
     assert.equal(canPrompt(scenario), false, `${variable} with a terminal attached`);
@@ -113,7 +115,7 @@ test('nothing throws on hostile input', () => {
   }
 });
 
-// The proof, in a real process with a real pseudo-terminal. Skipped where a PTY cannot be allocated,
+// The same, in a real process with a real pseudo-terminal. Skipped where a PTY cannot be allocated,
 // which is Windows and any host without python3, because the point is the behaviour and not the
 // mechanism for obtaining a terminal.
 const canAllocatePty = () => {

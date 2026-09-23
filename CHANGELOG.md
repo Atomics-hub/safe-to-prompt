@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.2
+
+A correction. 0.1.1 said that agents which attach a terminal leave nobody at it. That was wrong.
+
+- Gemini CLI and Cline attach a real terminal so that interactive programs work, and a person can
+  type into it: in Gemini CLI by pressing Tab, in Cline in the VS Code terminal. Codex attaches one
+  when the model asks for it, and the model can then type into it. A prompt there can be answered.
+- The behaviour is unchanged: `canPrompt()` still says no under an agent. The README, the package
+  description and the `agent` explanation now call that what it is, a policy of asking for a flag,
+  and no longer claim that nobody is present.
+- The `no-tty` explanation no longer says there is nothing to read a keystroke from. Answers piped
+  into stdin can be read; what is missing is a person who can type.
+- The README says plainly that `process.stdin.isTTY` already catches both measured failures.
+
 ## 0.1.1
 
 Corrections, so that every claim is one that was measured or traced to source.

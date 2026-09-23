@@ -53,7 +53,7 @@ export declare const CI_VARIABLES: readonly string[];
 /** Environment variables that identify a sandbox or remote development environment. */
 export declare const SANDBOX_VARIABLES: Readonly<Record<string, string>>;
 
-/** Whether this process can block on human input. */
+/** Whether to show an interactive prompt: a person is at a terminal and nothing says a program is driving. */
 export declare function canPrompt(options?: Options): boolean;
 
 /** Why a prompt would be unsafe, or null when it is safe. */

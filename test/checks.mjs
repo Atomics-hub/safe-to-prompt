@@ -22,8 +22,9 @@ export async function runChecks(api) {
   const check = (fn) => { fn(); count += 1; };
   const checkAsync = async (fn) => { await fn(); count += 1; };
 
-  // The case the package exists for: a terminal is attached AND an agent is running the process.
-  // A TTY check says yes. There is no human, and the prompt would wait until the agent gives up.
+  // The policy: a terminal is attached AND an agent is running the process. A TTY check says yes, and
+  // a person or the agent may well be able to answer there; this asks for a flag instead, and says so
+  // without claiming that nobody is present.
   check(() => {
     const scenario = {env: {TERM: 'xterm-256color', CLAUDECODE: '1'}, stdin: TTY, stdout: TTY};
     assert.equal(scenario.stdin.isTTY, true, 'the terminal really is attached');
@@ -32,6 +33,7 @@ export async function runChecks(api) {
     assert.equal(why.reason, 'agent');
     assert.match(why.detail, /claude-code/);
     assert.match(why.detail, /a terminal is attached/, 'names the terminal when there is one');
+    assert.doesNotMatch(why.detail, /nobody/, 'does not claim that nobody is there');
   });
 
   // The explanation never claims a terminal that is not there. In most agents there is none.
@@ -40,7 +42,7 @@ export async function runChecks(api) {
     const why = whyNotPrompt(noTerminal);
     assert.equal(why.reason, 'agent');
     assert.doesNotMatch(why.detail, /terminal is attached/, 'does not invent a terminal');
-    assert.match(why.detail, /nobody is there to answer/);
+    assert.match(why.detail, /a coding agent is driving this command/);
   });
 
   // Every agent variable produces the same refusal, with a terminal attached throughout.
@@ -60,7 +62,7 @@ export async function runChecks(api) {
     assert.equal(describeEnvironment(interactive()).reason, 'interactive');
   });
 
-  // No terminal means no keystroke to read, whatever else is true.
+  // Without a terminal on stdin no person can type an answer, whatever else is true.
   check(() => {
     assert.equal(canPrompt({env: {}, stdin: PIPE, stdout: TTY}), false);
     assert.equal(whyNotPrompt({env: {}, stdin: PIPE, stdout: TTY}).reason, 'no-tty');

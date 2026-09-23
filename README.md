@@ -1,18 +1,19 @@
 # safe-to-prompt
 
-Can this process block on human input? Zero dependencies.
+Should your CLI show an interactive prompt, or ask for a flag? Zero dependencies.
 
-**When a coding agent runs your CLI, an interactive prompt goes wrong in one of three ways**, depending
+**When a coding agent runs your CLI, an interactive prompt goes wrong in one of two ways**, depending
 on how that agent wires stdin:
 
 | stdin, as the agent sets it | agents that do this by default | what a prompt does |
 | --- | --- | --- |
 | closed | Codex, OpenCode, Roo Code, Kilo Code | exits **0** having done nothing |
 | open, never written to | Claude Code, Continue | waits until the agent gives up |
-| a real pseudo-terminal | Gemini CLI, Cline in VS Code | `isTTY` says a person is there; waits |
+| a real terminal | Gemini CLI, Cline in VS Code | waits for an answer, which the person can type |
 
 The middle column comes from reading each agent's source, except Claude Code, which was measured
-directly. The last column was measured against `prompts` (46M downloads a week).
+directly. What a prompt does was measured against `prompts` (46M downloads a week), and who can type
+into an attached terminal comes from Gemini CLI's and Cline's source.
 
 The first row is the one to worry about. When stdin closes, the prompt's promise never settles, the
 event loop drains, and Node exits with code 0 partway through the command. The agent is told it
@@ -46,30 +47,35 @@ Measured on 2026-09-22 in empty directories, with each tool's latest release and
 to pass. Either works for an agent, which reads the error and runs the command again. Exiting 0 does
 not work, because nothing tells anyone it went wrong.
 
-## Why a terminal check is not enough
+## A terminal check catches both failures
 
-`process.stdin.isTTY` catches the first two rows of the first table, and for most CLIs that is most
-of the problem. It cannot catch the third. Gemini CLI and Cline's VS Code extension run the commands
-a model asks for inside a real pseudo-terminal, so that interactive programs work, and `isTTY` is true
-there with nobody at it.
+`process.stdin.isTTY` is false in the first two rows of the first table, so a CLI that checks it
+before prompting avoids both failures. For many CLIs, that check is all they need.
 
-Every agent that does that also sets an environment variable on the command it runs: `GEMINI_CLI`,
-`CLINE_ACTIVE`. This package checks for those markers before it trusts the terminal, and the same for
-CI systems, which sometimes attach one too.
+The third row is not a failure. Gemini CLI and Cline run commands in a real terminal so that
+interactive programs work: in Gemini CLI the person presses Tab to type into the running command, and
+Cline uses a VS Code terminal the person can type in. Codex attaches a terminal when the model asks
+for one, and the model can then type into it itself.
+
+This package still says no there, as a deliberate policy: a program is driving the command, and a flag
+is an answer every agent can give. It recognises those agents by the variable each sets on the
+commands it runs (`GEMINI_CLI`, `CLINE_ACTIVE`, `CODEX_CI`), and treats CI runs that attach a
+terminal the same way. If you would rather prompt whenever a terminal is attached, check
+`process.stdin.isTTY` instead.
 
 ## Checks are ordered by authority
 
 1. **An explicit instruction wins.** `NO_PROMPT` and `FORCE_PROMPT` outrank everything below, in both
    directions. When they conflict, prompting is refused, because that is the safe way to be wrong.
-2. **An agent or a CI system means nobody is waiting**, whatever the terminal says.
+2. **An agent or a CI system means a program is driving**, whatever the terminal says.
 3. **Only then does the terminal get a vote.**
 
 Every answer carries its reason, worded to be true of the process it describes:
 
 ```js
 whyNotPrompt();
-// {reason: 'agent', detail: 'running under gemini-cli (GEMINI_CLI is set); a terminal is attached,
-//                            but nobody is at it'}
+// {reason: 'agent', detail: 'running under gemini-cli (GEMINI_CLI is set), so a coding agent is
+//                            driving this command, although a terminal is attached'}
 ```
 
 ## Sandboxes can prompt, on purpose
@@ -93,16 +99,17 @@ under Aider reaches a human, so this package lets it through.
 
 ### `canPrompt(options?)` → `boolean`
 
-Whether this process can block on human input.
+Whether to show an interactive prompt: a person is at a terminal and nothing says a program is
+driving.
 
 ### `whyNotPrompt(options?)` → `{reason, detail} | null`
 
-Why a prompt would be unsafe, or `null` when it is safe. `reason` is one of `agent`, `ci`, `no-tty`,
+Why not to prompt, or `null` when prompting is fine. `reason` is one of `agent`, `ci`, `no-tty`,
 `dumb-terminal` or `explicitly-disabled`.
 
 ### `promptOr(ask, fallback, options?)` → `Promise`
 
-Runs `ask()` when prompting is safe, and otherwise returns `fallback`. The fallback is **required**:
+Runs `ask()` when `canPrompt` says yes, and otherwise returns `fallback`. The fallback is **required**:
 an unattended run needs a deliberate answer. Pass a function to receive the reason.
 
 ### `canAnimate(options?)`, `canUseColor(options?)`, `canOpenBrowser(options?)`
@@ -152,9 +159,9 @@ are worth using if detection is all you need.
   a terminal looks like a person. That is why the lists are exported and `NO_PROMPT` exists.
 - **It cannot tell that a person is paying attention**, only that nothing suggests otherwise.
 - **It does not prompt.** Keep your prompt library. This decides whether to call it.
-- In the commonest case, a plain `process.stdin.isTTY` check gets the same answer. This package earns
-  its place with agents and CI runs that attach a terminal, the explicit overrides, and a reason you
-  can print.
+- For the two failures above, a plain `process.stdin.isTTY` check is enough. What this adds is a
+  policy for agents and CI runs that attach a terminal, explicit overrides, and a reason you can
+  print.
 
 ## Install
 

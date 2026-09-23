@@ -1,8 +1,8 @@
 {
   "name": "safe-to-prompt",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
-  "description": "Can this process block on human input? Under a coding agent a prompt exits 0 having done nothing, or waits forever. Gemini CLI and Cline attach a real terminal, so isTTY is not enough. Zero dependencies.",
+  "description": "Should your CLI prompt, or ask for a flag? Under a coding agent, a prompt can end your CLI with exit code 0 having done nothing, or wait forever. Says no under agents and CI, with a reason you can print. Zero dependencies.",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.cts",

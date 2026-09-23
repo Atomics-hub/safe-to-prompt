@@ -1,15 +1,20 @@
-// Can this process block on human input?
+// Should this process show an interactive prompt, or ask for a flag instead?
 //
-// Calling a prompt library when nobody can answer fails in one of two ways, both measured inside a
-// real coding agent. If stdin is closed, the prompt's promise never settles, the event loop drains,
-// and the process exits 0 having done nothing: the agent is told it succeeded. If stdin stays open,
-// the same promise waits until the agent gives up. A terminal check catches the common case; the
-// checks below also cover an agent or CI run that does attach a terminal.
+// Under a coding agent, a prompt library fails in one of two ways, both measured. If stdin is closed,
+// the prompt's promise never settles, the event loop drains, and the process exits 0 having done
+// nothing: the agent is told it succeeded. If stdin is open and nothing writes to it, the same promise
+// waits until the agent gives up. A terminal check catches both.
+//
+// Some agents attach a real terminal so that interactive programs work, and there a prompt can be
+// answered: by the person (Gemini CLI, Cline) or by the model (Codex). This package still says no
+// there, as a policy rather than a detection: a program is driving the command, and a flag is an
+// answer every agent can give. Check `process.stdin.isTTY` directly to prompt whenever a terminal is
+// attached.
 //
 // So the checks here are ordered by authority, and every answer carries the reason it was reached:
 //
 //   1. An explicit instruction from the operator wins outright, in both directions.
-//   2. A detected agent or CI system means no human is waiting, whatever the terminal says.
+//   2. A detected agent or CI system means a program is driving, whatever the terminal says.
 //   3. Only then does the terminal get a vote.
 //
 // Sandboxes are deliberately NOT treated as non-interactive. A person in a cloud development
@@ -152,11 +157,11 @@ function decide(options) {
 
   const agent = detectAgent(options);
   if (agent) {
-    // Say only what is true of this process. Most agents attach no terminal at all; the case worth
-    // naming is the one where a terminal IS attached, because that is the one a TTY check gets wrong.
+    // Say only what is true of this process. With a terminal attached, a person or the agent itself
+    // may be able to answer, so the refusal is stated as the policy it is.
     const detail = stdin?.isTTY
-      ? `running under ${agent.id} (${agent.variable} is set); a terminal is attached, but nobody is at it`
-      : `running under ${agent.id} (${agent.variable} is set), so nobody is there to answer`;
+      ? `running under ${agent.id} (${agent.variable} is set), so a coding agent is driving this command, although a terminal is attached`
+      : `running under ${agent.id} (${agent.variable} is set), so a coding agent is driving this command`;
     return {can: false, reason: 'agent', detail, agent};
   }
 
@@ -165,7 +170,7 @@ function decide(options) {
     return {can: false, reason: 'ci', detail: `${ci.variable} is set, so this is an automated build with nobody at a keyboard`, ci};
   }
 
-  if (!stdin?.isTTY) return {can: false, reason: 'no-tty', detail: 'stdin is not a terminal, so there is nothing to read a keystroke from'};
+  if (!stdin?.isTTY) return {can: false, reason: 'no-tty', detail: 'stdin is not a terminal, so no person can type an answer'};
   if (!stdout?.isTTY) return {can: false, reason: 'no-tty', detail: 'stdout is not a terminal, so the question would not be visible'};
   if (env.TERM === 'dumb') {
     return {can: false, reason: 'dumb-terminal', detail: 'TERM is dumb, so the terminal cannot render an interactive prompt'};
@@ -174,7 +179,7 @@ function decide(options) {
   return {can: true, reason: 'interactive', detail: 'a terminal is attached and nothing indicates automation'};
 }
 
-/** Whether this process can block on human input. */
+/** Whether to show an interactive prompt: a person is at a terminal and nothing says a program is driving. */
 export function canPrompt(options) {
   return decide(options).can;
 }
@@ -186,8 +191,8 @@ export function whyNotPrompt(options) {
 }
 
 /**
- * Whether to draw spinners, progress bars or anything that repaints a line. An agent records every
- * repaint as another line of transcript, so animation is noise there even when a terminal exists.
+ * Whether to draw spinners, progress bars or anything that repaints a line. Under an agent or CI the
+ * output is read by a program or a log, which a spinner gives nothing.
  */
 export function canAnimate(options) {
   const env = readEnv(options);
